@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Claude Code Inspector",
   description: "Inspect and visualize your Claude Code projects, sessions, and token usage",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
