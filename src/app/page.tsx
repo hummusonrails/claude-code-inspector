@@ -1,65 +1,369 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import Sidebar from '@/components/Sidebar';
+import ProjectDetail from '@/components/ProjectDetail';
+import ContextModal from '@/components/ContextModal';
+import StatsBar from '@/components/StatsBar';
+import { TerrainVisualization } from '@/components/TerrainVisualization';
+import UpgradePrompt from '@/components/UpgradePrompt';
+
+// pro analytics module type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface ProModule {
+  AnalyticsDashboard: React.ComponentType<any>;
+  validateLicense: (key: string) => { valid: boolean; email?: string; isBuilder?: boolean };
+  getStoredLicense: () => string | null;
+  storeLicense: (key: string) => void;
+}
+
+// load pro module — uses a shim file that can be swapped at build time
+async function loadPro(): Promise<ProModule | null> {
+  try {
+    const mod = await import('@/pro-loader');
+    return mod.default;
+  } catch {
+    return null;
+  }
+}
+
+interface Project {
+  id: string;
+  name: string;
+  path: string;
+  sessionCount: number;
+  totalTokens: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheCreationTokens: number;
+  totalCacheReadTokens: number;
+  lastActivity: string;
+  firstActivity: string;
+  sessions: SessionSummary[];
+}
+
+interface SessionSummary {
+  id: string;
+  projectId: string;
+  firstPrompt: string;
+  lastPrompt: string;
+  firstTimestamp: string;
+  lastTimestamp: string;
+  messageCount: number;
+  model: string;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheCreationTokens: number;
+  totalCacheReadTokens: number;
+  totalTokens: number;
+  contextWindowSnapshots: ContextSnapshot[];
+}
+
+interface ContextSnapshot {
+  timestamp: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  totalTokens: number;
+  messageIndex: number;
+}
+
+interface ModalData {
+  projectName: string;
+  sessionId: string;
+  model: string;
+  firstPrompt: string;
+  lastPrompt: string;
+  firstTimestamp: string;
+  lastTimestamp: string;
+  messageCount: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheCreationTokens: number;
+  totalCacheReadTokens: number;
+  totalTokens: number;
+  contextSnapshots: ContextSnapshot[];
+}
+
+interface TerrainDataPoint {
+  timestamp: string;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  sessionId: string;
+  messageIndex: number;
+  projectId?: string;
+  projectName?: string;
+}
 
 export default function Home() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [modalData, setModalData] = useState<ModalData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [view, setView] = useState<'terrain' | 'detail' | 'analytics'>('terrain');
+  const [isLicensed, setIsLicensed] = useState(false);
+  const [proMod, setProMod] = useState<ProModule | null>(null);
+
+  // load pro package
+  useEffect(() => {
+    loadPro().then((mod) => {
+      if (!mod) return;
+      setProMod(mod);
+      const stored = mod.getStoredLicense();
+      if (stored && mod.validateLicense(stored).valid) {
+        setIsLicensed(true);
+      }
+    });
+  }, []);
+
+  const handleLicenseActivate = useCallback((key: string) => {
+    if (proMod) proMod.storeLicense(key);
+    setIsLicensed(true);
+  }, [proMod]);
+
+  useEffect(() => {
+    fetch('/api/projects')
+      .then(res => res.json())
+      .then(data => {
+        setProjects(data.projects || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const handleSelectProject = useCallback(async (id: string) => {
+    setSelectedProjectId(id);
+    setLoadingDetail(true);
+    setView('detail');
+    try {
+      const res = await fetch(`/api/projects/${encodeURIComponent(id)}`);
+      const data = await res.json();
+      setSelectedProject(data);
+    } catch {
+      setSelectedProject(null);
+    }
+    setLoadingDetail(false);
+  }, []);
+
+  const handleSessionClick = useCallback(async (sessionId: string) => {
+    if (!selectedProject) return;
+    try {
+      const res = await fetch(
+        `/api/projects/${encodeURIComponent(selectedProject.id)}/sessions/${encodeURIComponent(sessionId)}`
+      );
+      const data = await res.json();
+      setModalData({
+        projectName: selectedProject.name,
+        sessionId: data.id,
+        model: data.model,
+        firstPrompt: data.firstPrompt,
+        lastPrompt: data.lastPrompt,
+        firstTimestamp: data.firstTimestamp,
+        lastTimestamp: data.lastTimestamp,
+        messageCount: data.messageCount,
+        totalInputTokens: data.totalInputTokens,
+        totalOutputTokens: data.totalOutputTokens,
+        totalCacheCreationTokens: data.totalCacheCreationTokens,
+        totalCacheReadTokens: data.totalCacheReadTokens,
+        totalTokens: data.totalTokens,
+        contextSnapshots: data.contextWindowSnapshots || [],
+      });
+      setIsModalOpen(true);
+    } catch {
+      // silent failure
+    }
+  }, [selectedProject]);
+
+  const handleTerrainPointClick = useCallback((point: TerrainDataPoint) => {
+    const projectId = point.projectId;
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const session = project.sessions?.find(s => s.id === point.sessionId);
+    if (session) {
+      setModalData({
+        projectName: project.name,
+        sessionId: session.id,
+        model: session.model,
+        firstPrompt: session.firstPrompt,
+        lastPrompt: session.lastPrompt,
+        firstTimestamp: session.firstTimestamp,
+        lastTimestamp: session.lastTimestamp,
+        messageCount: session.messageCount,
+        totalInputTokens: session.totalInputTokens,
+        totalOutputTokens: session.totalOutputTokens,
+        totalCacheCreationTokens: session.totalCacheCreationTokens,
+        totalCacheReadTokens: session.totalCacheReadTokens,
+        totalTokens: session.totalTokens,
+        contextSnapshots: session.contextWindowSnapshots || [],
+      });
+      setIsModalOpen(true);
+    } else {
+      fetch(`/api/projects/${encodeURIComponent(project.id)}/sessions/${encodeURIComponent(point.sessionId)}`)
+        .then(res => res.json())
+        .then(data => {
+          setModalData({
+            projectName: project.name,
+            sessionId: data.id,
+            model: data.model,
+            firstPrompt: data.firstPrompt,
+            lastPrompt: data.lastPrompt,
+            firstTimestamp: data.firstTimestamp,
+            lastTimestamp: data.lastTimestamp,
+            messageCount: data.messageCount,
+            totalInputTokens: data.totalInputTokens,
+            totalOutputTokens: data.totalOutputTokens,
+            totalCacheCreationTokens: data.totalCacheCreationTokens,
+            totalCacheReadTokens: data.totalCacheReadTokens,
+            totalTokens: data.totalTokens,
+            contextSnapshots: data.contextWindowSnapshots || [],
+          });
+          setIsModalOpen(true);
+        });
+    }
+  }, [projects]);
+
+  const terrainData = {
+    projects: projects.map(p => {
+      const snapPoints = (p.sessions || []).flatMap(s =>
+        (s.contextWindowSnapshots || []).map(snap => ({
+          timestamp: snap.timestamp,
+          totalTokens: snap.totalTokens,
+          inputTokens: snap.inputTokens,
+          outputTokens: snap.outputTokens,
+          sessionId: s.id,
+          messageIndex: snap.messageIndex,
+          projectId: p.id,
+          projectName: p.name,
+        }))
+      );
+
+      const sessionPoints = (p.sessions || []).map(s => ({
+        timestamp: s.firstTimestamp || s.lastTimestamp || new Date().toISOString(),
+        totalTokens: s.totalTokens,
+        inputTokens: s.totalInputTokens,
+        outputTokens: s.totalOutputTokens,
+        sessionId: s.id,
+        messageIndex: 0,
+        projectId: p.id,
+        projectName: p.name,
+      }));
+
+      return {
+        id: p.id,
+        name: p.name,
+        dataPoints: snapPoints.length > 0 ? snapPoints : sessionPoints,
+      };
+    }).filter(p => p.dataPoints.length > 0),
+  };
+
+  const totalSessions = projects.reduce((a, p) => a + p.sessionCount, 0);
+  const totalTokens = projects.reduce((a, p) => a + p.totalTokens, 0);
+  const totalMessages = projects.reduce(
+    (a, p) => a + (p.sessions || []).reduce((b, s) => b + s.messageCount, 0),
+    0
+  );
+  const mostActive = projects.length > 0
+    ? [...projects].sort((a, b) => b.totalTokens - a.totalTokens)[0]?.name || ''
+    : '';
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+          <p className="text-slate-400 text-sm">Loading Claude Code projects...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="h-full flex flex-col">
+      <StatsBar
+        totalProjects={projects.length}
+        totalSessions={totalSessions}
+        totalTokens={totalTokens}
+        totalMessages={totalMessages}
+        mostActiveProject={mostActive}
+        avgTokensPerSession={totalSessions > 0 ? Math.round(totalTokens / totalSessions) : 0}
+      />
+
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar
+          projects={projects}
+          selectedId={selectedProjectId}
+          onSelect={handleSelectProject}
+          onShowTerrain={() => {
+            setView('terrain');
+            setSelectedProjectId(null);
+          }}
+          onShowAnalytics={() => {
+            setView('analytics');
+            setSelectedProjectId(null);
+          }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        <main className="flex-1 overflow-hidden relative">
+          {view === 'terrain' && (
+            <div className="h-full animate-fade-in">
+              <TerrainVisualization
+                data={terrainData}
+                onPointClick={handleTerrainPointClick}
+                onPointHover={() => {}}
+                className="h-full"
+              />
+            </div>
+          )}
+
+          {view === 'detail' && selectedProject && !loadingDetail && (
+            <div className="h-full overflow-y-auto p-6 animate-slide-in-right">
+              <ProjectDetail
+                project={selectedProject}
+                onSessionClick={handleSessionClick}
+              />
+            </div>
+          )}
+
+          {view === 'detail' && loadingDetail && (
+            <div className="h-full flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+            </div>
+          )}
+
+          {view === 'detail' && !selectedProject && !loadingDetail && (
+            <div className="h-full flex items-center justify-center text-slate-500">
+              <p>Select a project from the sidebar</p>
+            </div>
+          )}
+
+          {view === 'analytics' && proMod && isLicensed && (
+            <div className="h-full overflow-y-auto animate-fade-in">
+              <proMod.AnalyticsDashboard projects={projects} />
+            </div>
+          )}
+
+          {view === 'analytics' && (!proMod || !isLicensed) && (
+            <div className="h-full animate-fade-in">
+              <UpgradePrompt
+                onActivate={handleLicenseActivate}
+                validateKey={proMod ? (key: string) => proMod.validateLicense(key).valid : undefined}
+              />
+            </div>
+          )}
+        </main>
+      </div>
+
+      <ContextModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        data={modalData}
+      />
     </div>
   );
 }

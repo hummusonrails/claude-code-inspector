@@ -1,0 +1,10 @@
+.git
+.github
+.next/cache
+.next/server
+node_modules
+Dockerfile
+.dockerignore
+.eslintrc*
+*.md
+!README.md

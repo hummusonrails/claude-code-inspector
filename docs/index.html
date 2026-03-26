@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Inspector — See everything Claude Code does.</title>
+  <meta name="description" content="A local dashboard that visualizes your Claude Code projects, sessions, tokens, and costs. Your data never leaves your machine.">
+  <meta name="theme-color" content="#030712">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #030712;
+      --surface: #0f172a;
+      --surface-light: #1e293b;
+      --border: rgba(148, 163, 184, 0.1);
+      --border-light: rgba(148, 163, 184, 0.08);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #22d3ee;
+      --accent-light: #a5f3fc;
+      --accent-glow: rgba(34, 211, 238, 0.15);
+      --purple: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.15);
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Animations */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .animate {
+      opacity: 0;
+      animation: fadeInUp 0.7s ease-out forwards;
+    }
+
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
+    .delay-4 { animation-delay: 0.4s; }
+    .delay-5 { animation-delay: 0.5s; }
+    .delay-6 { animation-delay: 0.6s; }
+    .delay-7 { animation-delay: 0.7s; }
+    .delay-8 { animation-delay: 0.8s; }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navigation */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(3, 7, 18, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--bg);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .nav-links a {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      transition: color 0.2s;
+      font-weight: 500;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-github {
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-github svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--text-secondary);
+      transition: fill 0.2s;
+    }
+
+    .nav-github:hover svg {
+      fill: var(--text-primary);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 160px 0 80px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse at center, rgba(34, 211, 238, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .eyebrow-dot {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      color: var(--text-primary);
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 1.5vw, 1.2rem);
+      color: var(--text-secondary);
+      max-width: 560px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+
+    .hero-ctas {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+      color: var(--bg);
+      font-weight: 600;
+      font-size: 0.9375rem;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 24px rgba(34, 211, 238, 0.25), 0 0 0 1px rgba(34, 211, 238, 0.1);
+      font-family: var(--font-mono);
+      letter-spacing: -0.01em;
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 40px rgba(34, 211, 238, 0.35), 0 0 0 1px rgba(34, 211, 238, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary svg {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 24px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.9375rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-sans);
+    }
+
+    .btn-secondary:hover {
+      border-color: rgba(148, 163, 184, 0.25);
+      color: var(--text-primary);
+      background: rgba(15, 23, 42, 0.5);
+    }
+
+    .btn-secondary svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .cursor-blink::after {
+      content: '|';
+      animation: blink 1s step-end infinite;
+      color: var(--accent);
+      margin-left: 2px;
+    }
+
+    /* Mockup */
+    .mockup-wrapper {
+      margin-top: 64px;
+      position: relative;
+    }
+
+    .mockup-wrapper::before {
+      content: '';
+      position: absolute;
+      bottom: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      height: 120px;
+      background: radial-gradient(ellipse, rgba(34, 211, 238, 0.08) 0%, transparent 70%);
+      filter: blur(40px);
+    }
+
+    .mockup {
+      max-width: 960px;
+      margin: 0 auto;
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(148, 163, 184, 0.05);
+    }
+
+    .mockup-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      background: rgba(15, 23, 42, 0.8);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mockup-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--surface-light);
+    }
+
+    .mockup-dot:nth-child(1) { background: #ef4444; opacity: 0.7; }
+    .mockup-dot:nth-child(2) { background: #eab308; opacity: 0.7; }
+    .mockup-dot:nth-child(3) { background: #22c55e; opacity: 0.7; }
+
+    .mockup-content {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      min-height: 380px;
+    }
+
+    .mockup-sidebar {
+      padding: 20px 16px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mockup-sidebar-item {
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(148, 163, 184, 0.04);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+    }
+
+    .mockup-sidebar-item.active {
+      background: var(--accent-glow);
+      border: 1px solid rgba(34, 211, 238, 0.15);
+    }
+
+    .mockup-sidebar-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      background: var(--surface-light);
+    }
+
+    .mockup-sidebar-item.active .mockup-sidebar-icon {
+      background: var(--accent);
+      opacity: 0.6;
+    }
+
+    .mockup-sidebar-text {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(148, 163, 184, 0.12);
+      flex: 1;
+    }
+
+    .mockup-sidebar-item.active .mockup-sidebar-text {
+      background: rgba(34, 211, 238, 0.25);
+    }
+
+    .mockup-main {
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Terrain mockup */
+    .terrain-mock {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .terrain-grid {
+      position: absolute;
+      bottom: 30%;
+      left: 5%;
+      right: 5%;
+      height: 55%;
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+    }
+
+    .terrain-bar {
+      flex: 1;
+      border-radius: 3px 3px 0 0;
+      background: linear-gradient(180deg, var(--accent), rgba(14, 165, 233, 0.3));
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+
+    .terrain-bar:nth-child(odd) { opacity: 0.4; }
+    .terrain-bar:nth-child(3n) { background: linear-gradient(180deg, var(--purple), rgba(168, 85, 247, 0.3)); opacity: 0.5; }
+
+    .terrain-stats {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      gap: 12px;
+    }
+
+    .terrain-stat {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      flex: 1;
+    }
+
+    .terrain-stat-label {
+      height: 6px;
+      width: 50%;
+      background: rgba(148, 163, 184, 0.15);
+      border-radius: 3px;
+      margin-bottom: 8px;
+    }
+
+    .terrain-stat-value {
+      height: 10px;
+      width: 70%;
+      background: rgba(34, 211, 238, 0.25);
+      border-radius: 4px;
+    }
+
+    .terrain-stat:nth-child(2) .terrain-stat-value {
+      background: rgba(168, 85, 247, 0.25);
+      width: 55%;
+    }
+
+    .terrain-stat:nth-child(3) .terrain-stat-value {
+      background: rgba(34, 211, 238, 0.2);
+      width: 85%;
+    }
+
+    /* Stats Bar */
+    .stats-section {
+      padding: 80px 0;
+    }
+
+    .stats-grid {
+      display: flex;
+      justify-content: center;
+      gap: 1px;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-light);
+      padding: 28px 32px;
+      text-align: center;
+      flex: 1;
+      min-width: 160px;
+    }
+
+    .stat-card:first-child {
+      border-radius: 16px 0 0 16px;
+    }
+
+    .stat-card:last-child {
+      border-radius: 0 16px 16px 0;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Features */
+    .features-section {
+      padding: 120px 0;
+    }
+
+    .section-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+      line-height: 1.15;
+    }
+
+    .section-desc {
+      color: var(--text-secondary);
+      font-size: 1.0625rem;
+      max-width: 520px;
+      line-height: 1.7;
+      margin-bottom: 56px;
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .bento-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-light);
+      border-radius: 16px;
+      padding: 32px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bento-card:hover {
+      border-color: rgba(148, 163, 184, 0.15);
+      background: rgba(15, 23, 42, 0.8);
+      transform: translateY(-2px);
+    }
+
+    .bento-card.large {
+      grid-column: span 2;
+    }
+
+    .bento-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(34, 211, 238, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: var(--accent);
+    }
+
+    .bento-card:nth-child(3n) .bento-icon {
+      background: var(--purple-glow);
+      border-color: rgba(168, 85, 247, 0.15);
+      color: var(--purple);
+    }
+
+    .bento-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .bento-desc {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      line-height: 1.65;
+    }
+
+    /* Card visual hints */
+    .bento-card .card-visual {
+      margin-top: 24px;
+      height: 120px;
+      border-radius: 10px;
+      background: rgba(3, 7, 18, 0.6);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .terrain-visual {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 2px;
+      padding: 16px;
+      height: 100%;
+    }
+
+    .terrain-visual .tv-bar {
+      width: 6px;
+      border-radius: 2px 2px 0 0;
+      background: linear-gradient(180deg, var(--accent), rgba(14, 165, 233, 0.2));
+    }
+
+    .terrain-visual .tv-bar:nth-child(odd) {
+      background: linear-gradient(180deg, var(--purple), rgba(168, 85, 247, 0.2));
+    }
+
+    .heatmap-visual {
+      display: grid;
+      grid-template-columns: repeat(20, 1fr);
+      gap: 3px;
+      padding: 16px;
+    }
+
+    .heatmap-cell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      background: rgba(34, 211, 238, 0.08);
+    }
+
+    .heatmap-cell.l1 { background: rgba(34, 211, 238, 0.15); }
+    .heatmap-cell.l2 { background: rgba(34, 211, 238, 0.3); }
+    .heatmap-cell.l3 { background: rgba(34, 211, 238, 0.5); }
+    .heatmap-cell.l4 { background: rgba(34, 211, 238, 0.75); }
+
+    .cost-visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 24px;
+      padding: 16px;
+    }
+
+    .cost-bar-group {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 80px;
+    }
+
+    .cost-bar {
+      width: 32px;
+      border-radius: 4px 4px 0 0;
+    }
+
+    .cost-bar.api { background: linear-gradient(180deg, var(--purple), rgba(168, 85, 247, 0.2)); }
+    .cost-bar.plan { background: linear-gradient(180deg, var(--accent), rgba(34, 211, 238, 0.2)); }
+
+    .cost-multiplier {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .cost-multiplier span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: block;
+      font-weight: 500;
+    }
+
+    /* How It Works */
+    .how-section {
+      padding: 120px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .how-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+      margin-top: 56px;
+    }
+
+    .how-step {
+      text-align: center;
+    }
+
+    .how-number {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(34, 211, 238, 0.15);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.125rem;
+      color: var(--accent);
+      margin-bottom: 20px;
+      font-family: var(--font-mono);
+    }
+
+    .how-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .how-desc {
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .how-code {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      color: var(--accent);
+    }
+
+    /* Analytics Pro */
+    .pro-section {
+      padding: 120px 0;
+      position: relative;
+    }
+
+    .pro-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(168, 85, 247, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .pro-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(168, 85, 247, 0.12);
+      border-radius: 20px;
+      padding: 64px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+    }
+
+    .pro-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 400px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--purple), transparent);
+    }
+
+    .pro-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--purple);
+      background: var(--purple-glow);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      border-radius: 100px;
+      padding: 6px 14px;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .pro-title {
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+
+    .pro-desc {
+      color: var(--text-secondary);
+      max-width: 480px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+
+    .pro-features {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 40px;
+      text-align: left;
+    }
+
+    .pro-feature {
+      background: rgba(3, 7, 18, 0.5);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .pro-feature-icon {
+      font-size: 1.25rem;
+      margin-bottom: 8px;
+    }
+
+    .pro-feature-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .pro-feature-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .btn-purple {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #9333ea, #a855f7);
+      color: white;
+      font-weight: 600;
+      font-size: 0.9375rem;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 24px rgba(168, 85, 247, 0.25);
+    }
+
+    .btn-purple:hover {
+      box-shadow: 0 0 40px rgba(168, 85, 247, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .pro-free-note {
+      color: var(--text-muted);
+      font-size: 0.8125rem;
+      margin-top: 16px;
+    }
+
+    /* Open Source */
+    .oss-section {
+      padding: 120px 0;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .oss-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      background: var(--accent-glow);
+      border: 1px solid rgba(34, 211, 238, 0.15);
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-bottom: 24px;
+    }
+
+    .oss-desc {
+      color: var(--text-secondary);
+      max-width: 480px;
+      margin: 0 auto 32px;
+      line-height: 1.7;
+      font-size: 1.0625rem;
+    }
+
+    .github-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-weight: 500;
+      font-size: 0.9375rem;
+      transition: all 0.2s;
+    }
+
+    .github-btn:hover {
+      border-color: rgba(148, 163, 184, 0.2);
+      background: var(--surface-light);
+    }
+
+    .github-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 0;
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-brand {
+      font-weight: 600;
+      font-size: 0.875rem;
+      margin-bottom: 4px;
+    }
+
+    .footer-tagline {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-links a {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-secondary);
+    }
+
+    .footer-meta {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-tech {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .footer-copy {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Trust badges */
+    .trust-badges {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 32px;
+      flex-wrap: wrap;
+    }
+
+    .trust-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 14px;
+    }
+
+    .trust-badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .trust-badge .green-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .nav-links a:not(.nav-github) {
+        display: none;
+      }
+
+      .hero {
+        padding: 120px 0 60px;
+      }
+
+      .hero-ctas {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0 16px;
+      }
+
+      .btn-primary, .btn-secondary {
+        justify-content: center;
+      }
+
+      .mockup-content {
+        grid-template-columns: 1fr;
+      }
+
+      .mockup-sidebar {
+        display: none;
+      }
+
+      .stats-grid {
+        flex-direction: column;
+        gap: 0;
+      }
+
+      .stat-card {
+        border-radius: 0;
+      }
+
+      .stat-card:first-child {
+        border-radius: 16px 16px 0 0;
+      }
+
+      .stat-card:last-child {
+        border-radius: 0 0 16px 16px;
+      }
+
+      .bento-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .bento-card.large {
+        grid-column: span 1;
+      }
+
+      .how-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+
+      .pro-card {
+        padding: 40px 24px;
+      }
+
+      .pro-features {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .footer-meta {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .features-section,
+      .how-section,
+      .pro-section,
+      .oss-section {
+        padding: 80px 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .pro-features {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <div class="nav-logo-icon">CI</div>
+        Claude Code Inspector
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#analytics">Analytics</a>
+        <a href="#pricing">Pricing</a>
+        <a href="https://github.com/bgreenberg/claude-code-inspector" class="nav-github" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="eyebrow animate delay-1">
+        <span>Open Source <span class="eyebrow-dot"></span> Local Only <span class="eyebrow-dot"></span> AGPL-3.0</span>
+      </div>
+      <h1 class="animate delay-2">See everything<br>Claude Code does.</h1>
+      <p class="hero-sub animate delay-3">A local dashboard that visualizes your projects, sessions, tokens, and costs. Your data never leaves your machine.</p>
+      <div class="hero-ctas animate delay-4">
+        <a href="#install" class="btn-primary">
+          <span class="cursor-blink">npx claude-code-inspector</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg>
+        </a>
+        <a href="https://github.com/bgreenberg/claude-code-inspector" class="btn-secondary" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="trust-badges animate delay-5">
+        <span class="trust-badge">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Open Source
+        </span>
+        <span class="trust-badge">
+          <span class="green-dot"></span>
+          Local Only
+        </span>
+        <span class="trust-badge">AGPL-3.0</span>
+      </div>
+
+      <!-- App Mockup -->
+      <div class="mockup-wrapper animate delay-6">
+        <div class="mockup">
+          <div class="mockup-bar">
+            <div class="mockup-dot"></div>
+            <div class="mockup-dot"></div>
+            <div class="mockup-dot"></div>
+          </div>
+          <div class="mockup-content">
+            <div class="mockup-sidebar">
+              <div class="mockup-sidebar-item active">
+                <div class="mockup-sidebar-icon"></div>
+                <div class="mockup-sidebar-text"></div>
+              </div>
+              <div class="mockup-sidebar-item">
+                <div class="mockup-sidebar-icon"></div>
+                <div class="mockup-sidebar-text"></div>
+              </div>
+              <div class="mockup-sidebar-item">
+                <div class="mockup-sidebar-icon"></div>
+                <div class="mockup-sidebar-text"></div>
+              </div>
+              <div class="mockup-sidebar-item">
+                <div class="mockup-sidebar-icon"></div>
+                <div class="mockup-sidebar-text"></div>
+              </div>
+              <div class="mockup-sidebar-item">
+                <div class="mockup-sidebar-icon"></div>
+                <div class="mockup-sidebar-text"></div>
+              </div>
+              <div class="mockup-sidebar-item">
+                <div class="mockup-sidebar-icon"></div>
+                <div class="mockup-sidebar-text"></div>
+              </div>
+            </div>
+            <div class="mockup-main">
+              <div class="terrain-mock">
+                <div class="terrain-stats">
+                  <div class="terrain-stat">
+                    <div class="terrain-stat-label"></div>
+                    <div class="terrain-stat-value"></div>
+                  </div>
+                  <div class="terrain-stat">
+                    <div class="terrain-stat-label"></div>
+                    <div class="terrain-stat-value"></div>
+                  </div>
+                  <div class="terrain-stat">
+                    <div class="terrain-stat-label"></div>
+                    <div class="terrain-stat-value"></div>
+                  </div>
+                </div>
+                <div class="terrain-grid">
+                  <div class="terrain-bar" style="height:45%"></div>
+                  <div class="terrain-bar" style="height:72%"></div>
+                  <div class="terrain-bar" style="height:58%"></div>
+                  <div class="terrain-bar" style="height:90%"></div>
+                  <div class="terrain-bar" style="height:35%"></div>
+                  <div class="terrain-bar" style="height:65%"></div>
+                  <div class="terrain-bar" style="height:82%"></div>
+                  <div class="terrain-bar" style="height:48%"></div>
+                  <div class="terrain-bar" style="height:95%"></div>
+                  <div class="terrain-bar" style="height:55%"></div>
+                  <div class="terrain-bar" style="height:78%"></div>
+                  <div class="terrain-bar" style="height:42%"></div>
+                  <div class="terrain-bar" style="height:68%"></div>
+                  <div class="terrain-bar" style="height:88%"></div>
+                  <div class="terrain-bar" style="height:52%"></div>
+                  <div class="terrain-bar" style="height:75%"></div>
+                  <div class="terrain-bar" style="height:40%"></div>
+                  <div class="terrain-bar" style="height:62%"></div>
+                  <div class="terrain-bar" style="height:85%"></div>
+                  <div class="terrain-bar" style="height:50%"></div>
+                  <div class="terrain-bar" style="height:70%"></div>
+                  <div class="terrain-bar" style="height:38%"></div>
+                  <div class="terrain-bar" style="height:92%"></div>
+                  <div class="terrain-bar" style="height:60%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Bar -->
+  <section class="stats-section">
+    <div class="container">
+      <div class="stats-grid animate delay-2">
+        <div class="stat-card">
+          <div class="stat-value">3</div>
+          <div class="stat-label">Views</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">21+</div>
+          <div class="stat-label">Data Points</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">8</div>
+          <div class="stat-label">Analytics Sections</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">SVG</div>
+          <div class="stat-label">Pure Charts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">0</div>
+          <div class="stat-label">Dependencies</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-label animate">Features</div>
+      <h2 class="section-title animate delay-1">Everything you need to understand<br>your Claude Code usage.</h2>
+      <p class="section-desc animate delay-2">No telemetry, no cloud, no accounts. Just a local server that reads your JSONL files and renders the data you already have.</p>
+
+      <div class="bento-grid">
+        <!-- Card 1: 3D Terrain -->
+        <div class="bento-card large animate delay-3">
+          <div class="bento-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+          </div>
+          <div class="bento-title">3D Terrain Visualization</div>
+          <div class="bento-desc">Every project becomes a peak in a Three.js terrain. Token usage mapped to height, time on the X axis, projects on the Z axis. Orbit, zoom, click any data point.</div>
+          <div class="card-visual">
+            <div class="terrain-visual">
+              <div class="tv-bar" style="height:30%"></div>
+              <div class="tv-bar" style="height:55%"></div>
+              <div class="tv-bar" style="height:72%"></div>
+              <div class="tv-bar" style="height:40%"></div>
+              <div class="tv-bar" style="height:88%"></div>
+              <div class="tv-bar" style="height:65%"></div>
+              <div class="tv-bar" style="height:95%"></div>
+              <div class="tv-bar" style="height:50%"></div>
+              <div class="tv-bar" style="height:78%"></div>
+              <div class="tv-bar" style="height:35%"></div>
+              <div class="tv-bar" style="height:60%"></div>
+              <div class="tv-bar" style="height:82%"></div>
+              <div class="tv-bar" style="height:45%"></div>
+              <div class="tv-bar" style="height:70%"></div>
+              <div class="tv-bar" style="height:90%"></div>
+              <div class="tv-bar" style="height:55%"></div>
+              <div class="tv-bar" style="height:38%"></div>
+              <div class="tv-bar" style="height:75%"></div>
+              <div class="tv-bar" style="height:62%"></div>
+              <div class="tv-bar" style="height:48%"></div>
+              <div class="tv-bar" style="height:85%"></div>
+              <div class="tv-bar" style="height:42%"></div>
+              <div class="tv-bar" style="height:68%"></div>
+              <div class="tv-bar" style="height:92%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Project Deep Dive -->
+        <div class="bento-card animate delay-4">
+          <div class="bento-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"></path><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"></path></svg>
+          </div>
+          <div class="bento-title">Project Deep Dive</div>
+          <div class="bento-desc">Expand any session to see first prompt, last prompt, model, message count, and full token breakdown with sparklines.</div>
+        </div>
+
+        <!-- Card 3: Context Modals -->
+        <div class="bento-card animate delay-5">
+          <div class="bento-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          </div>
+          <div class="bento-title">Context Modals</div>
+          <div class="bento-desc">Click any data point for a tabbed modal: Overview, First Prompt, Last Prompt, Token Usage donut chart, Context Timeline.</div>
+        </div>
+
+        <!-- Card 4: Activity Heatmap -->
+        <div class="bento-card animate delay-6">
+          <div class="bento-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </div>
+          <div class="bento-title">Activity Heatmap</div>
+          <div class="bento-desc">GitHub-style contribution grid showing when you code with Claude. Spot patterns in your AI-assisted workflow.</div>
+          <div class="card-visual">
+            <div class="heatmap-visual">
+              <div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l4"></div>
+              <div class="heatmap-cell l2"></div><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div>
+              <div class="heatmap-cell"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell l4"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell"></div><div class="heatmap-cell"></div>
+              <div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell"></div><div class="heatmap-cell"></div><div class="heatmap-cell l4"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell"></div>
+              <div class="heatmap-cell l3"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell l4"></div><div class="heatmap-cell"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l3"></div>
+              <div class="heatmap-cell"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell l1"></div><div class="heatmap-cell"></div><div class="heatmap-cell l3"></div><div class="heatmap-cell"></div><div class="heatmap-cell l2"></div><div class="heatmap-cell"></div><div class="heatmap-cell l4"></div><div class="heatmap-cell l1"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 5: Cache Efficiency -->
+        <div class="bento-card animate delay-7">
+          <div class="bento-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          </div>
+          <div class="bento-title">Cache Efficiency</div>
+          <div class="bento-desc">See your prompt caching hit rate across every project. Know exactly how much caching saves you.</div>
+        </div>
+
+        <!-- Card 6: Cost & Value -->
+        <div class="bento-card large animate delay-8">
+          <div class="bento-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+          </div>
+          <div class="bento-title">Cost & Value Analysis</div>
+          <div class="bento-desc">Select your Claude plan and see your value multiplier. Compare API-equivalent token cost against what you actually pay. Know your ROI.</div>
+          <div class="card-visual">
+            <div class="cost-visual">
+              <div class="cost-bar-group">
+                <div class="cost-bar api" style="height:80px"></div>
+                <div class="cost-bar plan" style="height:24px"></div>
+              </div>
+              <div class="cost-multiplier">
+                14.2x
+                <span>value multiplier</span>
+              </div>
+              <div class="cost-bar-group">
+                <div class="cost-bar api" style="height:60px"></div>
+                <div class="cost-bar plan" style="height:20px"></div>
+              </div>
+              <div class="cost-bar-group">
+                <div class="cost-bar api" style="height:72px"></div>
+                <div class="cost-bar plan" style="height:18px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="how-section" id="install">
+    <div class="container">
+      <div class="section-label animate">Get started</div>
+      <h2 class="section-title animate delay-1">Up and running in 30 seconds.</h2>
+
+      <div class="how-grid">
+        <div class="how-step animate delay-3">
+          <div class="how-number">1</div>
+          <div class="how-title">Install</div>
+          <div class="how-desc">One command. No global install needed.</div>
+          <div class="how-code">npx claude-code-inspector</div>
+        </div>
+        <div class="how-step animate delay-4">
+          <div class="how-number">2</div>
+          <div class="how-title">Open</div>
+          <div class="how-desc">Your browser opens automatically.</div>
+          <div class="how-code">localhost:3001</div>
+        </div>
+        <div class="how-step animate delay-5">
+          <div class="how-number">3</div>
+          <div class="how-title">Explore</div>
+          <div class="how-desc">Click any project, session, or data point.</div>
+          <div class="how-code">That's it. No config.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Analytics Pro -->
+  <section class="pro-section" id="analytics">
+    <div class="container">
+      <div class="pro-card animate delay-2">
+        <div class="pro-badge" id="pricing">Analytics Pro</div>
+        <h2 class="pro-title">Unlock deeper insights with Analytics Pro</h2>
+        <p class="pro-desc">Eight specialized analytics sections that break down every dimension of your Claude Code usage.</p>
+
+        <div class="pro-features">
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
+            </div>
+            <div class="pro-feature-name">Token Trends</div>
+            <div class="pro-feature-desc">Daily, weekly, monthly usage over time</div>
+          </div>
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+            </div>
+            <div class="pro-feature-name">Session Length</div>
+            <div class="pro-feature-desc">Duration histograms and averages</div>
+          </div>
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path></svg>
+            </div>
+            <div class="pro-feature-name">Model Usage</div>
+            <div class="pro-feature-desc">Breakdown by model across sessions</div>
+          </div>
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            </div>
+            <div class="pro-feature-name">Cache Analytics</div>
+            <div class="pro-feature-desc">Hit rates, savings, and efficiency</div>
+          </div>
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg>
+            </div>
+            <div class="pro-feature-name">Cost Breakdown</div>
+            <div class="pro-feature-desc">Per-project and per-session costs</div>
+          </div>
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </div>
+            <div class="pro-feature-name">Activity Patterns</div>
+            <div class="pro-feature-desc">Heatmaps and time-of-day analysis</div>
+          </div>
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+            </div>
+            <div class="pro-feature-name">Project Rankings</div>
+            <div class="pro-feature-desc">Top projects by tokens and sessions</div>
+          </div>
+          <div class="pro-feature">
+            <div class="pro-feature-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"></path></svg>
+            </div>
+            <div class="pro-feature-name">Export & Share</div>
+            <div class="pro-feature-desc">Download reports as JSON or CSV</div>
+          </div>
+        </div>
+
+        <a href="https://github.com/bgreenberg/claude-code-inspector" class="btn-purple">Get Analytics Pro</a>
+        <p class="pro-free-note">Free tier includes 3D terrain, project inspection, and session modals.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Open Source -->
+  <section class="oss-section">
+    <div class="container">
+      <h2 class="section-title animate delay-1">Built in the open.</h2>
+      <div class="oss-badge animate delay-2">AGPL-3.0</div>
+      <p class="oss-desc animate delay-3">Your data stays on your machine. The source code is open. Contributions welcome.</p>
+      <a href="https://github.com/bgreenberg/claude-code-inspector" class="github-btn animate delay-4" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div>
+          <div class="footer-brand">Claude Code Inspector</div>
+          <div class="footer-tagline">See everything Claude Code does.</div>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/bgreenberg/claude-code-inspector" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/bgreenberg/claude-code-inspector/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+          <a href="https://github.com/bgreenberg/claude-code-inspector/issues" target="_blank" rel="noopener">Issues</a>
+        </div>
+        <div class="footer-meta">
+          <div class="footer-tech">Built with Next.js, Three.js, and TypeScript</div>
+          <div class="footer-copy">&copy; 2026 Claude Code Inspector</div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
