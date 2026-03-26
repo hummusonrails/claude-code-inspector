@@ -185,7 +185,7 @@ export default function UpgradePrompt({ onActivate, validateKey }: UpgradePrompt
         {/* cta section */}
         <div className="text-center mb-8">
           <a
-            href="https://buy.stripe.com/claude-code-inspector"
+            href="https://yalladevrel.lemonsqueezy.com/checkout/buy/62004d70-13c5-4fd2-849e-66adf2215509"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold text-sm hover:from-cyan-400 hover:to-blue-400 transition-all duration-200 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5"
