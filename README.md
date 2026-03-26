@@ -115,6 +115,16 @@ Select your Claude plan (Pro, Max 5x, Max 20x, Teams, or API) to see your value 
 </p>
 </details>
 
+### Activating Analytics Pro
+
+1. Purchase a license key from the [Claude Code Inspector Pro page](https://hummusonrails.lemonsqueezy.com)
+2. Open Claude Code Inspector in your browser
+3. Click **Analytics** in the sidebar
+4. Click **Already have a key? Click to activate**
+5. Paste your license key and click **Activate**
+
+Your key is saved locally and persists across sessions. The 3D terrain view, project inspection, and session modals are always free.
+
 ## Project structure
 
 ```
