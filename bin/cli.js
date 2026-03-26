@@ -23,13 +23,13 @@ for (let i = 0; i < args.length; i++) {
   }
   if (args[i] === '-h' || args[i] === '--help') {
     console.log(`
-  claude-code-inspector
+  claude-dashboard-local
 
   a local dashboard for visualizing your claude code usage
 
   usage:
     cci [options]
-    npx claude-code-inspector [options]
+    npx claude-dashboard-local [options]
 
   options:
     -p, --port <number>  port to run on (default: ${DEFAULT_PORT})

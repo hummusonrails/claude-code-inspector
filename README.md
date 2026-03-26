@@ -1,6 +1,6 @@
 <!-- Banner -->
 <p align="center">
-  <img src=".github/banner.svg" alt="claude-code-inspector" width="100%">
+  <img src=".github/banner.svg" alt="claude-inspector" width="100%">
 </p>
 
 <!-- Badge row -->
@@ -41,7 +41,7 @@
 
 ```bash
 git clone https://github.com/hummusonrails/claude-code-inspector.git
-cd claude-code-inspector
+cd claude-inspector
 npm install
 npm run build
 npx next start -p 3001
