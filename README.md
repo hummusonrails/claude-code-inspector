@@ -20,6 +20,14 @@
   <a href="#quick-start">Quick Start</a> · <a href="#usage">Usage</a> · <a href="https://github.com/hummusonrails/claude-code-inspector/issues">Report a Bug</a>
 </p>
 
+<br>
+
+<p align="center">
+  <img src="docs/screenshots/terrain.png" alt="3D terrain visualization" width="100%" style="border-radius: 8px;">
+</p>
+
+<br>
+
 ## What it does
 
 - **Visualize** all your Claude Code projects as an interactive 3D terrain — peaks represent token usage over time
@@ -99,6 +107,14 @@ Click "Analytics" in the sidebar. Eight sections, each clickable for drill-down 
 
 Select your Claude plan (Pro, Max 5x, Max 20x, Teams, or API) to see your value multiplier — how many dollars of API-equivalent value you get per dollar of subscription.
 
+<details>
+<summary><strong>Analytics screenshot</strong></summary>
+<br>
+<p align="center">
+  <img src="docs/screenshots/analytics.png" alt="Analytics dashboard with cost analysis and model breakdown" width="100%" style="border-radius: 8px;">
+</p>
+</details>
+
 ## Project structure
 
 ```
@@ -118,7 +134,6 @@ src/
 │   ├── page.tsx                      # main app shell
 │   └── globals.css
 ├── components/
-│   ├── AnalyticsDashboard.tsx        # 8 analytics sections + detail modals
 │   ├── ContextModal.tsx              # session detail modal with tabs
 │   ├── ProjectDetail.tsx             # project view with expandable sessions
 │   ├── Sidebar.tsx                   # project list + view switcher
