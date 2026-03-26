@@ -1,6 +1,6 @@
 {
   "name": "claude-dashboard-local",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A local dashboard that visualizes your Claude Code usage, costs, and patterns",
   "license": "AGPL-3.0",
   "private": false,
@@ -27,7 +27,7 @@
     "build:pro": "mkdir -p node_modules/@hummusonrails/cci-pro && cp -r ../cci-pro/src ../cci-pro/package.json node_modules/@hummusonrails/cci-pro/ && cp src/pro-loader.pro.ts src/pro-loader.ts && next build && cp src/pro-loader.null.ts src/pro-loader.ts",
     "start": "next start",
     "lint": "eslint",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build:pro"
   },
   "engines": {
     "node": ">=18.0.0"
