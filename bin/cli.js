@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { execSync, spawn } = require('child_process');
+const { execSync, spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -50,21 +50,37 @@ if (!fs.existsSync(claudeDir)) {
   process.exit(1);
 }
 
-// check if build exists, build if not
-const standaloneServer = path.join(ROOT, '.next', 'standalone', 'server.js');
-const nextDir = path.join(ROOT, '.next');
+// paths
+const standaloneDir = path.join(ROOT, '.next', 'standalone');
+const standaloneServer = path.join(standaloneDir, 'server.js');
+const standaloneStatic = path.join(standaloneDir, '.next', 'static');
+const standalonePublic = path.join(standaloneDir, 'public');
+const sourceStatic = path.join(ROOT, '.next', 'static');
+const sourcePublic = path.join(ROOT, 'public');
 
-if (!fs.existsSync(standaloneServer)) {
-  if (!fs.existsSync(nextDir)) {
-    console.log('  building claude code inspector (first run only)...\n');
-    try {
-      execSync('npm run build', { cwd: ROOT, stdio: 'inherit' });
-    } catch {
-      console.error('\n  build failed — make sure node 18+ is installed\n');
-      process.exit(1);
-    }
+// copy static assets into standalone directory if missing
+function ensureStaticAssets() {
+  if (fs.existsSync(sourceStatic) && !fs.existsSync(standaloneStatic)) {
+    fs.cpSync(sourceStatic, standaloneStatic, { recursive: true });
+  }
+  if (fs.existsSync(sourcePublic) && !fs.existsSync(standalonePublic)) {
+    fs.cpSync(sourcePublic, standalonePublic, { recursive: true });
   }
 }
+
+// check if build exists, build if not
+if (!fs.existsSync(standaloneServer)) {
+  console.log('  building claude dashboard (first run only)...\n');
+  try {
+    execSync('npm run build', { cwd: ROOT, stdio: 'inherit' });
+  } catch {
+    console.error('\n  build failed — make sure node 18+ is installed\n');
+    process.exit(1);
+  }
+}
+
+// ensure static files are in place
+ensureStaticAssets();
 
 // find an available port
 function isPortAvailable(p) {
@@ -95,26 +111,15 @@ async function main() {
   }
 
   const url = `http://localhost:${actualPort}`;
-  console.log(`\n  claude code inspector`);
+  console.log(`\n  claude dashboard`);
   console.log(`  ${url}\n`);
 
-  // start the server
-  let serverProcess;
-
-  if (fs.existsSync(standaloneServer)) {
-    // use standalone output
-    serverProcess = spawn('node', [standaloneServer], {
-      cwd: path.join(ROOT, '.next', 'standalone'),
-      env: { ...process.env, PORT: String(actualPort), HOSTNAME: '0.0.0.0' },
-      stdio: 'inherit',
-    });
-  } else {
-    // fallback to next start
-    serverProcess = spawn('npx', ['next', 'start', '-p', String(actualPort)], {
-      cwd: ROOT,
-      stdio: 'inherit',
-    });
-  }
+  // start the standalone server
+  const serverProcess = spawn('node', [standaloneServer], {
+    cwd: standaloneDir,
+    env: { ...process.env, PORT: String(actualPort), HOSTNAME: '0.0.0.0' },
+    stdio: 'inherit',
+  });
 
   // open browser
   if (openBrowser) {
