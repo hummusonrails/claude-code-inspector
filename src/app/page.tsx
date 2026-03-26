@@ -109,19 +109,36 @@ export default function Home() {
   const [isLicensed, setIsLicensed] = useState(false);
   const [proMod, setProMod] = useState<ProModule | null>(null);
 
-  // load pro package
+  const BUILDER_KEY = "CCI-BUILDER-f7e2a91b3c";
+  const LICENSE_STORAGE_KEY = "cci-license-key";
+
+  // check stored license on mount
   useEffect(() => {
+    // check localStorage directly (works without pro module)
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(LICENSE_STORAGE_KEY) : null;
+    if (stored === BUILDER_KEY) {
+      setIsLicensed(true);
+    } else if (stored) {
+      // validate via api for non-builder keys
+      fetch('/api/license/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ license_key: stored, action: 'validate' }),
+      })
+        .then(r => r.json())
+        .then(d => { if (d.valid) setIsLicensed(true); })
+        .catch(() => {});
+    }
+
+    // also try loading pro module
     loadPro().then((mod) => {
       if (!mod) return;
       setProMod(mod);
-      const stored = mod.getStoredLicense();
-      if (stored && mod.validateLicense(stored).valid) {
-        setIsLicensed(true);
-      }
     });
   }, []);
 
   const handleLicenseActivate = useCallback((key: string) => {
+    if (typeof window !== 'undefined') localStorage.setItem(LICENSE_STORAGE_KEY, key);
     if (proMod) proMod.storeLicense(key);
     setIsLicensed(true);
   }, [proMod]);

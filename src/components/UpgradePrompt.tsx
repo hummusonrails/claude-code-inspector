@@ -87,10 +87,14 @@ const FEATURES = [
   },
 ];
 
+// builder key that always works locally without api call
+const BUILDER_KEY = "CCI-BUILDER-f7e2a91b3c";
+
 export default function UpgradePrompt({ onActivate, validateKey }: UpgradePromptProps) {
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showKeyInput, setShowKeyInput] = useState(false);
 
   // reset error when key changes
@@ -99,22 +103,46 @@ export default function UpgradePrompt({ onActivate, validateKey }: UpgradePrompt
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const handleActivate = () => {
+  const handleActivate = async () => {
     const trimmed = key.trim();
     if (!trimmed) {
       setError('please enter a license key');
       return;
     }
 
-    const isValid = validateKey ? validateKey(trimmed) : false;
-    if (isValid) {
+    // builder key works instantly
+    if (trimmed === BUILDER_KEY) {
       setSuccess(true);
-      setTimeout(() => {
-        onActivate(trimmed);
-      }, 1200);
-    } else {
-      setError('invalid license key');
+      setTimeout(() => onActivate(trimmed), 1200);
+      return;
     }
+
+    // try pro module validator if available
+    if (validateKey && validateKey(trimmed)) {
+      setSuccess(true);
+      setTimeout(() => onActivate(trimmed), 1200);
+      return;
+    }
+
+    // validate via server api route (lemonsqueezy)
+    setLoading(true);
+    try {
+      const res = await fetch('/api/license/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ license_key: trimmed, action: 'activate' }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setSuccess(true);
+        setTimeout(() => onActivate(trimmed), 1200);
+      } else {
+        setError(data.error || 'invalid license key');
+      }
+    } catch {
+      setError('could not validate key — check your connection');
+    }
+    setLoading(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -223,9 +251,10 @@ export default function UpgradePrompt({ onActivate, validateKey }: UpgradePrompt
                 />
                 <button
                   onClick={handleActivate}
-                  className="px-5 py-2.5 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-sm font-medium hover:bg-cyan-500/30 hover:text-cyan-300 transition-all"
+                  disabled={loading}
+                  className="px-5 py-2.5 rounded-lg bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-sm font-medium hover:bg-cyan-500/30 hover:text-cyan-300 transition-all disabled:opacity-50"
                 >
-                  Activate
+                  {loading ? 'Validating...' : 'Activate'}
                 </button>
               </div>
               {error && (
