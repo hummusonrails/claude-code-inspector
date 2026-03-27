@@ -111,6 +111,7 @@ export default function Home() {
 
   const BUILDER_KEY = "CCI-BUILDER-f7e2a91b3c";
   const LICENSE_STORAGE_KEY = "cci-license-key";
+  const LICENSE_API_URL = process.env.NEXT_PUBLIC_LICENSE_API_URL || "http://localhost:3000/api";
 
   // check stored license on mount
   useEffect(() => {
@@ -120,7 +121,7 @@ export default function Home() {
       setIsLicensed(true);
     } else if (stored) {
       // validate via api for non-builder keys
-      fetch('/api/license/validate', {
+      fetch(`${LICENSE_API_URL}/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ license_key: stored, action: 'validate' }),
