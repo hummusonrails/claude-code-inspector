@@ -111,7 +111,7 @@ export default function Home() {
 
   const BUILDER_KEY = "CCI-BUILDER-f7e2a91b3c";
   const LICENSE_STORAGE_KEY = "cci-license-key";
-  const LICENSE_API_URL = process.env.NEXT_PUBLIC_LICENSE_API_URL || "http://localhost:3000/api";
+  const LICENSE_API_URL = process.env.NEXT_PUBLIC_LICENSE_API_URL || "https://cci-license.yalladevrel.com/api";
 
   // check stored license on mount
   useEffect(() => {

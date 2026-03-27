@@ -1,6 +1,6 @@
 {
   "name": "claude-dashboard-local",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "A local dashboard that visualizes your Claude Code usage, costs, and patterns",
   "license": "AGPL-3.0",
   "private": false,
@@ -62,13 +62,16 @@
     "three": "^0.183.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
+    "stripe": "^21.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.2"
   }
 }

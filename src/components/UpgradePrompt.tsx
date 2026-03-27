@@ -90,8 +90,8 @@ const FEATURES = [
 // builder key that always works locally without api call
 const BUILDER_KEY = "CCI-BUILDER-f7e2a91b3c";
 
-// license service URL (baked in at build time, falls back to localhost for dev)
-const LICENSE_API_URL = process.env.NEXT_PUBLIC_LICENSE_API_URL || "http://localhost:3000/api";
+// license service URL (baked in at build time)
+const LICENSE_API_URL = process.env.NEXT_PUBLIC_LICENSE_API_URL || "https://cci-license.yalladevrel.com/api";
 
 export default function UpgradePrompt({ onActivate, validateKey }: UpgradePromptProps) {
   const [key, setKey] = useState('');
@@ -127,7 +127,7 @@ export default function UpgradePrompt({ onActivate, validateKey }: UpgradePrompt
       return;
     }
 
-    // validate via server api route (lemonsqueezy)
+    // validate via stripe license service
     setLoading(true);
     try {
       const res = await fetch(`${LICENSE_API_URL}/validate`, {
