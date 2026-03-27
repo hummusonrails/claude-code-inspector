@@ -90,6 +90,9 @@ const FEATURES = [
 // builder key that always works locally without api call
 const BUILDER_KEY = "CCI-BUILDER-f7e2a91b3c";
 
+// license service URL (baked in at build time, falls back to localhost for dev)
+const LICENSE_API_URL = process.env.NEXT_PUBLIC_LICENSE_API_URL || "http://localhost:3000/api";
+
 export default function UpgradePrompt({ onActivate, validateKey }: UpgradePromptProps) {
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
@@ -127,7 +130,7 @@ export default function UpgradePrompt({ onActivate, validateKey }: UpgradePrompt
     // validate via server api route (lemonsqueezy)
     setLoading(true);
     try {
-      const res = await fetch('/api/license/validate', {
+      const res = await fetch(`${LICENSE_API_URL}/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ license_key: trimmed, action: 'activate' }),
@@ -212,17 +215,28 @@ export default function UpgradePrompt({ onActivate, validateKey }: UpgradePrompt
 
         {/* cta section */}
         <div className="text-center mb-8">
-          <a
-            href="https://yalladevrel.lemonsqueezy.com/checkout/buy/62004d70-13c5-4fd2-849e-66adf2215509"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold text-sm hover:from-cyan-400 hover:to-blue-400 transition-all duration-200 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5"
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch(`${LICENSE_API_URL}/checkout`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                });
+                const data = await res.json();
+                if (data.url) {
+                  window.open(data.url, '_blank', 'noopener,noreferrer');
+                }
+              } catch {
+                // fall back to opening nothing — user can retry
+              }
+            }}
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold text-sm hover:from-cyan-400 hover:to-blue-400 transition-all duration-200 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 hover:-translate-y-0.5 cursor-pointer"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
               <path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Get a License Key
-          </a>
+          </button>
         </div>
 
         {/* license key input section */}
